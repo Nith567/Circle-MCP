@@ -759,11 +759,6 @@ server.tool(
         };
       }
 
-      console.log(`🚀 Executing Circle Paymaster ${version} transfer...`);
-      console.log(`   From: ${accountAddress} (${version === "v0.8" ? "EIP-7702" : "Circle"} Smart Account)`);
-      console.log(`   To: ${recipientAddress}`);
-      console.log(`   Amount: ${amount} USDC`);
-
       // Execute transfer - REMOVE version parameter for v0.7
       const transferParams = {
         chainId,
