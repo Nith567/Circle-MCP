@@ -704,6 +704,10 @@ export function registerEVMTools(server: McpServer) {
       }
     }
   );
+// ...existing code...
+
+// ...existing code...
+
 // Circle Paymaster - Gasless USDC transfers (v0.8 default, v0.7 legacy)
 server.tool(
   "paymaster_send_usdc",
@@ -759,24 +763,14 @@ server.tool(
         };
       }
 
-      // Execute transfer - REMOVE version parameter for v0.7
-      const transferParams = {
+      // Execute transfer with proper parameters
+      const result = await service.executeGaslessTransfer({
         chainId,
         recipientAddress: recipientAddress as Address,
-        amount,
-      };
-
-      const result = await service.executeGaslessTransfer(transferParams);
+        amount
+      });
 
       if (result.success) {
-        // Safely access properties with optional chaining and fallbacks
-        const txHash = 'txHash' in result ? result.txHash : 
-                      'transactionHash' in result ? result.transactionHash : 
-                      'userOperationHash' in result ? result.userOperationHash : 
-                      undefined;
-        
-        const explorerUrl = 'explorerUrl' in result ? result.explorerUrl : undefined;
-
         return {
           content: [{
             type: "text",
@@ -794,8 +788,7 @@ server.tool(
                 gasPaidWith: "USDC",
                 noETHRequired: true,
               },
-              ...(txHash && { txHash }),
-              ...(explorerUrl && { explorerUrl }),
+              explorerUrl: result.explorerUrl,
               note: "Gas fees automatically deducted from USDC balance!"
             }, null, 2)
           }]
@@ -806,7 +799,7 @@ server.tool(
             type: "text",
             text: JSON.stringify({
               success: false,
-              error: result.message,
+              error: result.message  || "Transfer failed",
               version,
               chainId
             }, null, 2)
@@ -815,7 +808,6 @@ server.tool(
         };
       }
     } catch (error) {
-      console.error(`Circle Paymaster ${version} error:`, error);
       return {
         content: [{
           type: "text",
@@ -831,6 +823,10 @@ server.tool(
     }
   }
 );
+
+// ...existing code...
+
+// ...existing code...
   server.tool(
     "paymaster_check_balance",
     "Check USDC balance for Circle Smart Account (used for gasless transfers)",
