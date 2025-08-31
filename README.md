@@ -1,53 +1,34 @@
-# Circle CCTP v2 MCP Server
+# Circle CCTP MCP Server
 
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that enables seamless cross-chain USDC transfers using Circle's Cross-Chain Transfer Protocol (CCTP) v2. This server provides AI agents and LLM applications with the ability to transfer USDC between multiple blockchains through simple tool calls.
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that enables seamless **USDC-only transactions** across multiple blockchains using Circle's Cross-Chain Transfer Protocol (CCTP) v2 and Circle Paymaster. Perfect for AI agents that need to handle USDC transfers without worrying about native gas tokens.
 
-## Features
+## 🌟 Circle-Powered Features
 
-🔄 **Cross-Chain USDC Transfers**: Transfer USDC between 8 supported chains using Circle's CCTP v2  
-⚡ **Fast & Standard Transfers**: Choose between fast (1000 finality) or standard (2000 finality) transfer speeds  
-🔗 **Multi-Chain Support**: Ethereum Sepolia, Base Sepolia, Avalanche Fuji, Arbitrum Sepolia, Linea Sepolia, Worldchain Sepolia, Sonic Blaze, and Unichain Sepolia  
-💰 **Balance Checking**: Check USDC balances across all supported chains  
-🛡️ **Secure**: Uses your private key for transactions (stored locally in .env)  
-📊 **Comprehensive Tooling**: Full EVM interaction capabilities including token transfers, balance checks, and contract interactions
+### 🔄 Cross-Chain USDC Transfers (CCTP v2)
+- **Native USDC**: Real USDC transfers, not bridges or wrapped tokens
+- **8 Testnets Supported**: Ethereum, Base, Arbitrum, Avalanche, Sonic, Linea, Worldchain, Unichain Sepolia
+- **Fast & Standard Modes**: Choose your transfer speed
+- **AI-Friendly**: Simple tool calls for complex cross-chain operations
 
-## Supported Networks
-
-| Chain | Chain ID | Domain | Status |
-| Unichain Sepolia | 1301 | 10 | ✅ Active |
-|-------|----------|---------|---------|
-| Ethereum Sepolia | 11155111 | 0 | ✅ Active |
-| Avalanche Fuji | 43113 | 1 | ✅ Active |
-| Arbitrum Sepolia | 421614 | 3 | ✅ Active |
-| Base Sepolia | 84532 | 6 | ✅ Active |
-| Linea Sepolia | 59144 | 11 | ✅ Active |
-| Sonic Blaze | 161 | 13 | ✅ Active |
-| Worldchain Sepolia | 1666700000 | 14 | ✅ Active |
-
-## Quick Start
+### ⛽ Gasless USDC Transactions (Circle Paymaster)
+- **Pay Gas with USDC**: No ETH required for transactions
+- **Two Versions Available**:
+  - **v0.8 (Recommended)**: EIP-7702 Smart Accounts, 7 testnets
+  - **v0.7 (Legacy)**: Circle Smart Accounts, Arbitrum Sepolia only
+- **Perfect UX**: Recipients receive USDC without paying gas fees
+- **Account Abstraction**: Modern wallet infrastructure built-in
 
 ## 🚀 Quick Start
 
-### Installation
-
-```bash
-# Install globally
-npm install -g @circle-fin/cctp-mcp-server
-
-# Or use with npx (no installation needed)
-npx @circle-fin/cctp-mcp-server
-```
-
-### Configuration
-
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+### Claude Desktop Configuration
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "circle-cctp": {
       "command": "npx",
-      "args": ["-y", "@circle-fin/cctp-mcp-server"],
+      "args": ["-y", "circle-cctp-mcp-server"],
       "env": {
         "PRIVATE_KEY": "0x..."
       }
@@ -56,72 +37,188 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 }
 ```
 
-## Available Tools
+## 🛠 Circle CCTP Tools
 
-### Core CCTP Tools
+### Core Cross-Chain Transfer Tools
 
 #### `cctp_cross_chain_transfer`
-Transfer USDC between supported chains using Circle's CCTP v2.
+**Transfer USDC between chains using Circle's native protocol**
 
-**Parameters:**
-- `fromChainId` (number): Source chain ID (e.g., 11155111 for Ethereum Sepolia)
-- `toChainId` (number): Destination chain ID (e.g., 84532 for Base Sepolia)  
-- `recipientAddress` (string): Recipient address on destination chain
-- `amount` (string): Amount of USDC to transfer (e.g., "10.5")
-- `transferType` (optional): "fast" or "standard" (default: "standard")
-
-**Example:**
-```json
+```typescript
+// Transfer 25 USDC from Ethereum to Base
 {
   "name": "cctp_cross_chain_transfer",
   "arguments": {
-    "fromChainId": 11155111,
-    "toChainId": 84532,
+    "fromChainId": 11155111,    // Ethereum Sepolia
+    "toChainId": 84532,         // Base Sepolia
     "recipientAddress": "0x742d35Cc6654B3B5B2F214fB3E6dC8b5b1234567",
     "amount": "25.0",
-    "transferType": "fast"
+    "transferType": "fast"      // or "standard"
   }
 }
 ```
 
-#### `get_usdc_balance_cctp`
-Check USDC balance on any CCTP supported chain.
-
 **Parameters:**
-- `address` (optional): Address to check (uses configured private key address if not provided)
-- `chainId` (number): Chain ID to check balance on
+- `fromChainId`: Source chain ID
+- `toChainId`: Destination chain ID  
+- `amount`: USDC amount (e.g., "10.5")
+- `recipientAddress`: Destination address
+- `transferType`: "fast" or "standard" (optional)
 
-#### `get_cctp_supported_chains`
-Get list of all chains supported by Circle CCTP.
+#### `get_usdc_balance_cctp`
+**Check USDC balance on any supported chain**
 
-### EVM Tools
+```typescript
+// Check balance on Arbitrum Sepolia
+{
+  "name": "get_usdc_balance_cctp",
+  "arguments": {
+    "chainId": 421614,
+    "address": "0x742d35Cc6654B3B5B2F214fB3E6dC8b5b1234567"
+  }
+}
+```
 
-#### `get_balance`
-Get native token balance (ETH) for an address on any supported chain.
+#### `get_supported_chains_cctp`
+**Get all chains supported by Circle CCTP**
 
-#### `transfer_native`
-Transfer native tokens (ETH) to an address.
+Returns list of 8 supported testnets with chain IDs and domain mappings.
 
-#### `transfer_erc20`
-Transfer ERC20 tokens to another address.
+#### `get_domain_mappings_cctp`
+**Get Circle domain mappings for CCTP protocol**
 
-#### `get_erc20_balance` / `get_token_balance`
-Get ERC20 token balance for an address.
+## ⛽ Circle Paymaster Tools
 
-#### `get_transaction`
-Get detailed information about a specific transaction.
+### Gasless Transaction Tools
 
-#### `get_transaction_receipt`
-Get transaction receipt by hash.
+#### `paymaster_get_account_address`
+**Get your Circle Smart Account address for funding**
 
-#### `get_token_info`
-Get comprehensive information about an ERC20 token.
+```typescript
+// Get EIP-7702 account address for Base Sepolia
+{
+  "name": "paymaster_get_account_address",
+  "arguments": {
+    "chainId": 84532,
+    "version": "v0.8"          // or "v0.7" for legacy
+  }
+}
+```
 
-## Circle CCTP Process Flow
+**What it returns:**
+- Smart Account address
+- Current USDC balance
+- Funding instructions
+- Account type (EIP-7702 vs Circle Smart Account)
 
-1. **Burn Phase**: USDC is burned on the source chain via Token Messenger
-2. **Attestation**: Circle's attestation service signs the burn message
-3. **Mint Phase**: USDC is minted on destination chain using the attestation
+#### `paymaster_check_balance`
+**Check USDC balance in your Smart Account**
+
+```typescript
+// Check balance in Smart Account
+{
+  "name": "paymaster_check_balance",
+  "arguments": {
+    "chainId": 421614,
+    "version": "v0.8"
+  }
+}
+```
+
+#### `paymaster_send_usdc`
+**Send gasless USDC transfers (recipient pays zero gas)**
+
+```typescript
+// Send 5 USDC gaslessly
+{
+  "name": "paymaster_send_usdc",
+  "arguments": {
+    "chainId": 421614,
+    "recipientAddress": "0x8879318091671ba1274e751f8cDEF76bb37eb3eD",
+    "amount": "5.0",
+    "version": "v0.8"
+  }
+}
+```
+
+**Flow:**
+1. User pays gas in USDC (not ETH)
+2. Recipient receives USDC without paying any gas
+3. Perfect onboarding experience
+
+#### `paymaster_get_supported_chains`
+**Get chains supported by Circle Paymaster**
+
+```typescript
+// Get v0.8 supported chains (7 testnets)
+{
+  "name": "paymaster_get_supported_chains",
+  "arguments": {
+    "version": "v0.8"
+  }
+}
+```
+
+## 🌐 Supported Networks
+
+### CCTP v2 Cross-Chain Transfers
+
+| Network | Chain ID | Domain | USDC Address | Status |
+|---------|----------|---------|--------------|---------|
+| **Ethereum Sepolia** | 11155111 | 0 | `0x1c7d4b196cb0c7b01d743fbc6116a902379c7238` | ✅ |
+| **Avalanche Fuji** | 43113 | 1 | `0x5425890298aed601595a70AB815c96711a31Bc65` | ✅ |
+| **Arbitrum Sepolia** | 421614 | 3 | `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` | ✅ |
+| **Base Sepolia** | 84532 | 6 | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | ✅ |
+| **Linea Sepolia** | 59144 | 11 | `0xFEce4462D57bD51A6A552365A011b95f0E16d9B7` | ✅ |
+| **Sonic Blaze** | 161 | 13 | `0xA4879Fed32Ecbef99399e5cbC247E533421C4eC6` | ✅ |
+| **Worldchain Sepolia** | 1666700000 | 14 | `0x66145f38cBAC35Ca6F1Dfb4914dF98F1614aeA88` | ✅ |
+| **Unichain Sepolia** | 1301 | 10 | `0x31d0220469e10c4E71834a79b1f276d740d3768F` | ✅ |
+
+### Circle Paymaster v0.8 (EIP-7702 Smart Accounts)
+
+| Network | Chain ID | Paymaster Address | Status |
+|---------|----------|-------------------|---------|
+| **Arbitrum Sepolia** | 421614 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| **Base Sepolia** | 84532 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| **Ethereum Sepolia** | 11155111 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| **Avalanche Fuji** | 43113 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| **Optimism Sepolia** | 11155420 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| **Polygon Amoy** | 80002 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| **Unichain Sepolia** | 1301 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+
+### Circle Paymaster v0.7 (Legacy)
+
+| Network | Chain ID | Paymaster Address | Status |
+|---------|----------|-------------------|---------|
+| **Arbitrum Sepolia** | 421614 | `0x31BE08D380A21fc740883c0BC434FcFc88740b58` | ⚠️ Legacy |
+
+## 💬 Natural Language Usage
+
+### In Claude Desktop
+
+```
+"Transfer 10 USDC from Ethereum Sepolia to Base Sepolia"
+```
+
+```
+"Send 5 USDC gaslessly to 0x123... on Arbitrum Sepolia using Circle Paymaster"
+```
+
+```
+"What's my USDC balance on all chains?"
+```
+
+```
+"Get my Circle Smart Account address for Arbitrum Sepolia so I can fund it"
+```
+
+```
+"Check if I can send gasless transactions on Base Sepolia"
+```
+
+## 🔄 How Circle CCTP Works
+
+Circle's Cross-Chain Transfer Protocol enables native USDC transfers without bridges:
 
 ```
 Source Chain          Circle API          Destination Chain
@@ -131,97 +228,97 @@ Source Chain          Circle API          Destination Chain
 TokenMessenger         Iris API               MessageTransmitter
 ```
 
-## Example Usage in AI Applications
+**Process:**
+1. **Burn**: USDC burned on source chain via Token Messenger
+2. **Attest**: Circle's attestation service signs the burn message  
+3. **Mint**: Native USDC minted on destination chain
 
-### Claude/ChatGPT Integration
+**Benefits:**
+- ✅ Real USDC (not wrapped)
+- ✅ 2-5 minute transfers
+- ✅ Lower fees than bridges
+- ✅ Circle's audited contracts
 
-```typescript
-// Transfer 100 USDC from Ethereum Sepolia to Base Sepolia
-const transfer = await mcp.callTool({
-  name: "cctp_cross_chain_transfer", 
-  arguments: {
-    fromChainId: 11155111,    // Ethereum Sepolia
-    toChainId: 84532,         // Base Sepolia  
-    recipientAddress: "0x742d35Cc6654B3B5B2F214fB3E6dC8b5b1234567",
-    amount: "100.0",
-    transferType: "fast"
-  }
-});
+## ⛽ How Circle Paymaster Works
+
+Circle Paymaster enables USDC-only transactions where users pay gas in USDC:
+
+```
+User Wallet           Circle Paymaster           Blockchain
+     |                        |                        |
+[Sign Permit] ----------> [Receive USDC] --------> [Pay Gas in ETH]
+     |                        |                        |
+[Send UserOp] ----------> [Bundle & Submit] -----> [Execute Transaction]
+     |                        |                        |
+[Pay 0 ETH] <------------- [Deduct USDC] <--------- [Transaction Success]
 ```
 
-### Check USDC Balances
+**Process:**
+1. **EIP-2612 Permit**: User signs permit for paymaster to spend USDC
+2. **User Operation**: Transaction bundled with paymaster data
+3. **Gas Payment**: Paymaster pays ETH gas, deducts equivalent USDC
+4. **Execution**: Transaction executes, user never touches ETH
 
-```typescript
-// Check USDC balance on multiple chains
-const chains = [11155111, 84532, 43113]; // ETH, Base, Avalanche
-for (const chainId of chains) {
-  const balance = await mcp.callTool({
-    name: "get_usdc_balance_cctp",
-    arguments: { chainId }
-  });
-  console.log(`Chain ${chainId}: ${balance.balance.formatted}`);
-}
+**Benefits:**
+- ✅ Zero ETH required
+- ✅ Perfect onboarding UX
+- ✅ Recipients pay no gas
+- ✅ Multi-chain support
+
+## 🚀 Getting Started
+
+### 1. Fund Your Account
+
+**For CCTP transfers:**
+- Fund your EOA with USDC on any supported chain
+- Use [Circle Faucet](https://faucet.circle.com)
+
+**For Paymaster gasless transfers:**
+```bash
+# Get your Smart Account address
+"Get my Circle Smart Account address for Arbitrum Sepolia"
+
+# Fund it with USDC at https://faucet.circle.com
+# Then send gasless transactions!
 ```
 
-## Development
-
-### Building
+### 2. Start Transferring
 
 ```bash
-bun run build
+# Cross-chain transfer
+"Send 10 USDC from Base to Arbitrum"
+
+# Gasless transfer  
+"Send 5 USDC gaslessly to 0x123... on Base using Circle Paymaster"
 ```
 
-### Testing
+## 💡 Best Practices
 
-```bash
-# Run all tests
-bun test
+1. **Use v0.8 Paymaster**: Better performance and more chains than v0.7
+2. **Fund Smart Accounts**: Ensure your Circle Smart Account has USDC for gasless transfers
+3. **Check Balances**: Regular balance checks help track transfers
+4. **Consider Speed**: Use "fast" transfers for urgent transactions
+5. **Test First**: Use testnets to familiarize yourself with the tools
 
-# Test specific functionality
-bun run test-cctp.js
-```
+## 🛡️ Security
 
-### Project Structure
+- Private keys stored locally in `.env` files
+- All transactions signed locally using viem
+- Circle's audited smart contracts
+- Testnet environments for safe experimentation
 
-```
-src/
-├── core/
-│   ├── chains.ts          # Chain configurations and CCTP constants
-│   ├── config.ts          # Environment configuration
-│   ├── tools.ts           # MCP tool definitions
-│   ├── resources.ts       # MCP resource definitions
-│   └── services/
-│       ├── cctp.ts        # Circle CCTP service implementation
-│       ├── balance.ts     # Balance checking services
-│       ├── transfer.ts    # Transfer services
-│       └── ...
-├── server/
-│   ├── server.ts          # MCP server implementation
-│   └── http-server.ts     # HTTP wrapper
-└── index.ts               # Main entry point
-```
+## 🔗 Resources
 
-## Security Considerations
+- [Circle CCTP Documentation](https://developers.circle.com/stablecoins/docs/cctp-getting-started)
+- [Circle Paymaster Documentation](https://developers.circle.com/wallets/docs/circle-paymaster-overview)
+- [Circle Developer Hub](https://developers.circle.com)
+- [Model Context Protocol](https://modelcontextprotocol.io)
+- [USDC Faucet](https://faucet.circle.com)
 
-- Private keys are stored locally in `.env` files
-- All transactions are signed locally using viem
-- Circle CCTP uses their audited smart contracts
-- Testnet environments for safe testing
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## License
+## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## Links
+---
 
-- [Circle CCTP Documentation](https://developers.circle.com/stablecoins/cctp)
-- [Model Context Protocol](https://modelcontextprotocol.io)
-- [Circle Developer Hub](https://developers.circle.com)
+**Made with ❤️ for the Circle ecosystem and AI agent developers who want USDC-only transactions without gas token complexity.**
