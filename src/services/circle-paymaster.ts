@@ -365,13 +365,7 @@ export class CirclePaymasterService {
       // 2. Bundler integration  
       // 3. User operation signing
       // 4. Paymaster validation
-      
-      console.log("🔄 Simulating gasless transfer execution...");
-      console.log(`   From: ${this.account.address}`);
-      console.log(`   To: ${recipientAddress}`);
-      console.log(`   Amount: ${amount} USDC`);
-      console.log(`   Paymaster: ${paymasterAddress}`);
-      console.log(`   Chain: ${chain.name} (${chainId})`);
+
 
       // Create permit signature
       const permitAmount = 10000000n; // 10 USDC allowance for gas
