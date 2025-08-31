@@ -704,115 +704,138 @@ export function registerEVMTools(server: McpServer) {
       }
     }
   );
-
-  // Circle Paymaster - Gasless USDC transfers (v0.8 default, v0.7 legacy)
-  server.tool(
-    "paymaster_send_usdc",
-    "Send USDC using Circle Paymaster (gasless transaction - gas fees paid in USDC). v0.8 supports multiple chains with EIP-7702, v0.7 is legacy. NOTE: Get your smart account address first and fund it with USDC.",
-    {
-      chainId: z.number().describe("Chain ID (421614=Arbitrum, 84532=Base, 11155111=Ethereum, 43113=Avalanche, 11155420=Optimism, 80002=Polygon, 1301=Unichain Sepolia)"),
-      recipientAddress: z.string().describe("Recipient wallet address (0x...)"),
-      amount: z.string().describe("Amount of USDC to send (e.g., '10.50' for $10.50)"),
-      version: z.enum(["v0.7", "v0.8"]).optional().describe("Paymaster version - v0.8 (default, multi-chain) or v0.7 (legacy, Arbitrum only)"),
-    },
-    async ({ chainId, recipientAddress, amount, version = "v0.8" }) => {
-      try {
-        if (version === "v0.7" && chainId !== 421614) {
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: "Circle Paymaster v0.7 only supports Arbitrum Sepolia (421614)",
-                recommendation: "Use v0.8 (default) which supports multiple testnets",
-                supportedChainsV08: "Arbitrum, Base, Ethereum, Avalanche, Optimism, Polygon, Unichain Sepolia"
-              }, null, 2)
-            }]
-          };
-        }
-
-        const service = version === "v0.8" ? paymasterV08Service : paymasterService;
-        
-        // Check balance first
-        const balance = await service.checkUSDCBalance(chainId, undefined, version);
-        const accountAddress = await service.getAccountAddress(chainId, version);
-        
-        if (parseFloat(balance) < parseFloat(amount)) {
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: "Insufficient USDC balance in Smart Account",
-                currentBalance: balance,
-                requiredAmount: amount,
-                smartAccountAddress: accountAddress,
-                version,
-                accountType: version === "v0.8" ? "EIP-7702 Smart Account" : "Circle Smart Account",
-                instructions: [
-                  "Fund your Smart Account with USDC first",
-                  `Smart Account Address: ${accountAddress}`,
-                  "Faucet: https://faucet.circle.com",
-                  "Then try the transfer again"
-                ]
-              }, null, 2)
-            }]
-          };
-        }
-
-        // Execute transfer
-        const result = await service.executeGaslessTransfer({
-          chainId,
-          recipientAddress: recipientAddress as Address,
-          amount,
-          version,
-        });
-
-        if (result.success) {
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                success: true,
-                message: result.message,
-                version,
-                accountType: version === "v0.8" ? "EIP-7702 Smart Account" : "Circle Smart Account",
-                gaslessTransfer: true,
-                details: {
-                  from: accountAddress,
-                  to: recipientAddress,
-                  amount: `${amount} USDC`,
-                  chainId: chainId,
-                  gasPaidWith: "USDC",
-                  noETHRequired: true,
-                },
-                transactionHash: 'transactionHash' in result ? result.transactionHash : undefined,
-                userOperationHash: 'userOperationHash' in result ? result.userOperationHash : undefined,
-                note: "Gas fees automatically deducted from USDC balance!"
-              }, null, 2)
-            }]
-          };
-        } else {
-          return {
-            content: [{
-              type: "text",
-              text: `Error preparing gasless transfer: ${result.message}`
-            }],
-            isError: true
-          };
-        }
-      } catch (error) {
+// Circle Paymaster - Gasless USDC transfers (v0.8 default, v0.7 legacy)
+server.tool(
+  "paymaster_send_usdc",
+  "Send USDC using Circle Paymaster (gasless transaction - gas fees paid in USDC). v0.8 supports multiple chains with EIP-7702, v0.7 is legacy. NOTE: Get your smart account address first and fund it with USDC.",
+  {
+    chainId: z.number().describe("Chain ID (421614=Arbitrum, 84532=Base, 11155111=Ethereum, 43113=Avalanche, 11155420=Optimism, 80002=Polygon, 1301=Unichain Sepolia)"),
+    recipientAddress: z.string().describe("Recipient wallet address (0x...)"),
+    amount: z.string().describe("Amount of USDC to send (e.g., '10.50' for $10.50)"),
+    version: z.enum(["v0.7", "v0.8"]).optional().describe("Paymaster version - v0.8 (default, multi-chain) or v0.7 (legacy, Arbitrum only)"),
+  },
+  async ({ chainId, recipientAddress, amount, version = "v0.8" }) => {
+    try {
+      if (version === "v0.7" && chainId !== 421614) {
         return {
           content: [{
             type: "text",
-            text: `Error with Circle Paymaster: ${error instanceof Error ? error.message : String(error)}`
+            text: JSON.stringify({
+              success: false,
+              error: "Circle Paymaster v0.7 only supports Arbitrum Sepolia (421614)",
+              recommendation: "Use v0.8 (default) which supports multiple testnets",
+              supportedChainsV08: "Arbitrum, Base, Ethereum, Avalanche, Optimism, Polygon, Unichain Sepolia"
+            }, null, 2)
+          }]
+        };
+      }
+
+      const service = version === "v0.8" ? paymasterV08Service : paymasterService;
+      
+      // Check balance first
+      const balance = await service.checkUSDCBalance(chainId, undefined, version);
+      const accountAddress = await service.getAccountAddress(chainId, version);
+      
+      if (parseFloat(balance) < parseFloat(amount)) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: "Insufficient USDC balance in Smart Account",
+              currentBalance: balance,
+              requiredAmount: amount,
+              smartAccountAddress: accountAddress,
+              version,
+              accountType: version === "v0.8" ? "EIP-7702 Smart Account" : "Circle Smart Account",
+              instructions: [
+                "Fund your Smart Account with USDC first",
+                `Smart Account Address: ${accountAddress}`,
+                "Faucet: https://faucet.circle.com",
+                "Then try the transfer again"
+              ]
+            }, null, 2)
+          }]
+        };
+      }
+
+      console.log(`🚀 Executing Circle Paymaster ${version} transfer...`);
+      console.log(`   From: ${accountAddress} (${version === "v0.8" ? "EIP-7702" : "Circle"} Smart Account)`);
+      console.log(`   To: ${recipientAddress}`);
+      console.log(`   Amount: ${amount} USDC`);
+
+      // Execute transfer - REMOVE version parameter for v0.7
+      const transferParams = {
+        chainId,
+        recipientAddress: recipientAddress as Address,
+        amount,
+      };
+
+      const result = await service.executeGaslessTransfer(transferParams);
+
+      if (result.success) {
+        // Safely access properties with optional chaining and fallbacks
+        const txHash = 'txHash' in result ? result.txHash : 
+                      'transactionHash' in result ? result.transactionHash : 
+                      'userOperationHash' in result ? result.userOperationHash : 
+                      undefined;
+        
+        const explorerUrl = 'explorerUrl' in result ? result.explorerUrl : undefined;
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              message: result.message,
+              version,
+              accountType: version === "v0.8" ? "EIP-7702 Smart Account" : "Circle Smart Account",
+              gaslessTransfer: true,
+              details: {
+                from: accountAddress,
+                to: recipientAddress,
+                amount: `${amount} USDC`,
+                chainId: chainId,
+                gasPaidWith: "USDC",
+                noETHRequired: true,
+              },
+              ...(txHash && { txHash }),
+              ...(explorerUrl && { explorerUrl }),
+              note: "Gas fees automatically deducted from USDC balance!"
+            }, null, 2)
+          }]
+        };
+      } else {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: result.message,
+              version,
+              chainId
+            }, null, 2)
           }],
           isError: true
         };
       }
+    } catch (error) {
+      console.error(`Circle Paymaster ${version} error:`, error);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            version,
+            chainId
+          }, null, 2)
+        }],
+        isError: true
+      };
     }
-  );
-
+  }
+);
   server.tool(
     "paymaster_check_balance",
     "Check USDC balance for Circle Smart Account (used for gasless transfers)",
@@ -861,48 +884,6 @@ export function registerEVMTools(server: McpServer) {
           content: [{
             type: "text",
             text: `Error checking paymaster balance: ${error instanceof Error ? error.message : String(error)}`
-          }],
-          isError: true
-        };
-      }
-    }
-  );
-
-  server.tool(
-    "paymaster_get_supported_chains",
-    "Get list of chains supported by Circle Paymaster v0.7",
-    {},
-    async () => {
-      try {
-        const supportedChains = paymasterService.getSupportedChains();
-
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              supportedChains: supportedChains.map(chain => ({
-                name: chain.name,
-                chainId: chain.chainId,
-                paymasterAddress: chain.paymasterAddress,
-                usdcAddress: chain.usdcAddress,
-                gaslessTransfers: true,
-              })),
-              totalChains: supportedChains.length,
-              benefits: [
-                "No ETH required for gas fees",
-                "Gas automatically paid from USDC balance", 
-                "Seamless user experience",
-                "Powered by Circle Paymaster v0.7"
-              ]
-            }, null, 2)
-          }]
-        };
-      } catch (error) {
-        return {
-          content: [{
-            type: "text",
-            text: `Error getting supported chains: ${error instanceof Error ? error.message : String(error)}`
           }],
           isError: true
         };

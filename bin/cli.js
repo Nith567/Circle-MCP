@@ -13,7 +13,6 @@ const require = createRequire(import.meta.url);
 const args = process.argv.slice(2);
 const httpMode = args.includes('--http') || args.includes('-h');
 
-console.log(`Starting EVM MCP Server in ${httpMode ? 'HTTP' : 'stdio'} mode...`);
 
 // Determine which file to execute
 const scriptPath = resolve(__dirname, '../build', httpMode ? 'http-server.js' : 'index.js');
@@ -29,7 +28,6 @@ try {
   });
 
   server.on('error', (err) => {
-    console.error('Failed to start server:', err);
     process.exit(1);
   });
 
@@ -45,8 +43,5 @@ try {
   process.on('exit', cleanup);
 
 } catch (error) {
-  console.error('Error: Server files not found. The package may not be built correctly.');
-  console.error('Please try reinstalling the package or contact the maintainers.');
-  console.error(error);
   process.exit(1);
 } 
