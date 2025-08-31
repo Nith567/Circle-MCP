@@ -21,6 +21,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that en
 ## 🚀 Quick Start
 
 ### Claude Desktop Configuration
+
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
@@ -89,18 +90,65 @@ Returns list of 8 supported testnets with chain IDs and domain mappings.
 
 ## ⛽ Circle Paymaster Tools
 
+Circle Paymaster enables gasless USDC transactions where users pay gas fees in USDC instead of native tokens (ETH). **Two versions are available with different capabilities:**
+
+### 🆕 Circle Paymaster v0.8 (Recommended)
+**EIP-7702 Smart Accounts - The Future of Gasless Transactions**
+
+#### Key Features:
+- ✅ **EIP-7702 Technology**: Your EOA gets smart contract capabilities
+- ✅ **Same Address**: Smart Account uses your existing EOA address
+- ✅ **7 Testnets Supported**: Multi-chain gasless transactions
+- ✅ **Better Performance**: Optimized gas usage and faster execution
+- ✅ **Future-Proof**: Latest Circle technology
+
+#### Supported Networks (v0.8):
+| Network | Chain ID | Status |
+|---------|----------|---------|
+| **Arbitrum Sepolia** | 421614 | ✅ |
+| **Base Sepolia** | 84532 | ✅ |
+| **Ethereum Sepolia** | 11155111 | ✅ |
+| **Avalanche Fuji** | 43113 | ✅ |
+| **Optimism Sepolia** | 11155420 | ✅ |
+| **Polygon Amoy** | 80002 | ✅ |
+| **Unichain Sepolia** | 1301 | ✅ |
+
+### 🔒 Circle Paymaster v0.7 (Legacy)
+**Circle Smart Accounts - Original Implementation**
+
+#### Key Features:
+- ⚠️ **Circle Smart Account**: Separate smart contract wallet
+- ⚠️ **Different Address**: Smart Account has different address than EOA
+- ⚠️ **Single Chain**: Only Arbitrum Sepolia supported
+- ⚠️ **Legacy Technology**: Older Circle implementation
+- ⚠️ **Complex Setup**: Requires EIP-4337 bundler integration
+
+#### Supported Networks (v0.7):
+| Network | Chain ID | Status |
+|---------|----------|---------|
+| **Arbitrum Sepolia** | 421614 | ⚠️ Legacy Only |
+
 ### Gasless Transaction Tools
 
 #### `paymaster_get_account_address`
 **Get your Circle Smart Account address for funding**
 
 ```typescript
-// Get EIP-7702 account address for Base Sepolia
+// Get EIP-7702 account address (v0.8) - RECOMMENDED
 {
   "name": "paymaster_get_account_address",
   "arguments": {
-    "chainId": 84532,
-    "version": "v0.8"          // or "v0.7" for legacy
+    "chainId": 84532,           // Base Sepolia
+    "version": "v0.8"           // Uses your EOA address directly!
+  }
+}
+
+// Get Circle Smart Account address (v0.7) - LEGACY
+{
+  "name": "paymaster_get_account_address", 
+  "arguments": {
+    "chainId": 421614,          // Arbitrum Sepolia only
+    "version": "v0.7"           // Creates separate smart contract
   }
 }
 ```
@@ -115,12 +163,21 @@ Returns list of 8 supported testnets with chain IDs and domain mappings.
 **Check USDC balance in your Smart Account**
 
 ```typescript
-// Check balance in Smart Account
+// Check v0.8 balance (recommended)
 {
   "name": "paymaster_check_balance",
   "arguments": {
-    "chainId": 421614,
+    "chainId": 84532,           // Any of 7 supported chains
     "version": "v0.8"
+  }
+}
+
+// Check v0.7 balance (legacy)
+{
+  "name": "paymaster_check_balance",
+  "arguments": {
+    "chainId": 421614,          // Arbitrum Sepolia only
+    "version": "v0.7"
   }
 }
 ```
@@ -129,32 +186,58 @@ Returns list of 8 supported testnets with chain IDs and domain mappings.
 **Send gasless USDC transfers (recipient pays zero gas)**
 
 ```typescript
-// Send 5 USDC gaslessly
+// Send gaslessly with v0.8 (recommended)
 {
   "name": "paymaster_send_usdc",
   "arguments": {
-    "chainId": 421614,
+    "chainId": 84532,           // Base Sepolia
     "recipientAddress": "0x8879318091671ba1274e751f8cDEF76bb37eb3eD",
     "amount": "5.0",
-    "version": "v0.8"
+    "version": "v0.8"           // EIP-7702 Smart Account
+  }
+}
+
+// Send gaslessly with v0.7 (legacy)
+{
+  "name": "paymaster_send_usdc",
+  "arguments": {
+    "chainId": 421614,          // Arbitrum Sepolia only
+    "recipientAddress": "0x8879318091671ba1274e751f8cDEF76bb37eb3eD",
+    "amount": "5.0", 
+    "version": "v0.7"           // Circle Smart Account + EIP-4337
   }
 }
 ```
 
-**Flow:**
+**v0.8 Flow (Recommended):**
 1. User pays gas in USDC (not ETH)
-2. Recipient receives USDC without paying any gas
-3. Perfect onboarding experience
+2. Uses EIP-7702 to add smart contract functionality to EOA
+3. Recipient receives USDC without paying any gas
+4. Perfect onboarding experience across 7 chains
+
+**v0.7 Flow (Legacy):**
+1. User signs EIP-2612 permit for paymaster to spend USDC
+2. Creates EIP-4337 User Operation via bundler
+3. Paymaster pays gas in ETH, deducts equivalent USDC
+4. Only works on Arbitrum Sepolia
 
 #### `paymaster_get_supported_chains`
 **Get chains supported by Circle Paymaster**
 
 ```typescript
-// Get v0.8 supported chains (7 testnets)
+// Get v0.8 supported chains (7 testnets) - RECOMMENDED
 {
   "name": "paymaster_get_supported_chains",
   "arguments": {
     "version": "v0.8"
+  }
+}
+
+// Get v0.7 supported chains (1 testnet) - LEGACY
+{
+  "name": "paymaster_get_supported_chains",
+  "arguments": {
+    "version": "v0.7"
   }
 }
 ```
@@ -174,23 +257,23 @@ Returns list of 8 supported testnets with chain IDs and domain mappings.
 | **Worldchain Sepolia** | 1666700000 | 14 | `0x66145f38cBAC35Ca6F1Dfb4914dF98F1614aeA88` | ✅ |
 | **Unichain Sepolia** | 1301 | 10 | `0x31d0220469e10c4E71834a79b1f276d740d3768F` | ✅ |
 
-### Circle Paymaster v0.8 (EIP-7702 Smart Accounts)
+### Circle Paymaster v0.8 (EIP-7702 Smart Accounts) - **RECOMMENDED**
 
-| Network | Chain ID | Paymaster Address | Status |
-|---------|----------|-------------------|---------|
-| **Arbitrum Sepolia** | 421614 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
-| **Base Sepolia** | 84532 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
-| **Ethereum Sepolia** | 11155111 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
-| **Avalanche Fuji** | 43113 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
-| **Optimism Sepolia** | 11155420 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
-| **Polygon Amoy** | 80002 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
-| **Unichain Sepolia** | 1301 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | ✅ |
+| Network | Chain ID | Paymaster Address | Account Type | Status |
+|---------|----------|-------------------|--------------|---------|
+| **Arbitrum Sepolia** | 421614 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
+| **Base Sepolia** | 84532 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
+| **Ethereum Sepolia** | 11155111 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
+| **Avalanche Fuji** | 43113 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
+| **Optimism Sepolia** | 11155420 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
+| **Polygon Amoy** | 80002 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
+| **Unichain Sepolia** | 1301 | `0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966` | EIP-7702 | ✅ |
 
-### Circle Paymaster v0.7 (Legacy)
+### Circle Paymaster v0.7 (Circle Smart Accounts) - **LEGACY**
 
-| Network | Chain ID | Paymaster Address | Status |
-|---------|----------|-------------------|---------|
-| **Arbitrum Sepolia** | 421614 | `0x31BE08D380A21fc740883c0BC434FcFc88740b58` | ⚠️ Legacy |
+| Network | Chain ID | Paymaster Address | Account Type | Status |
+|---------|----------|-------------------|--------------|---------|
+| **Arbitrum Sepolia** | 421614 | `0x31BE08D380A21fc740883c0BC434FcFc88740b58` | Circle Smart Account | ⚠️ Legacy |
 
 ## 💬 Natural Language Usage
 
@@ -201,7 +284,11 @@ Returns list of 8 supported testnets with chain IDs and domain mappings.
 ```
 
 ```
-"Send 5 USDC gaslessly to 0x123... on Arbitrum Sepolia using Circle Paymaster"
+"Send 5 USDC gaslessly to 0x123... on Base Sepolia using Circle Paymaster v0.8"
+```
+
+```
+"Send 3 USDC gaslessly to 0x123... on Arbitrum Sepolia using Circle Paymaster v0.7"
 ```
 
 ```
@@ -209,7 +296,11 @@ Returns list of 8 supported testnets with chain IDs and domain mappings.
 ```
 
 ```
-"Get my Circle Smart Account address for Arbitrum Sepolia so I can fund it"
+"Get my Circle Smart Account address for Base Sepolia (v0.8)"
+```
+
+```
+"Get my Circle Smart Account address for Arbitrum Sepolia (v0.7)"
 ```
 
 ```
@@ -241,10 +332,28 @@ TokenMessenger         Iris API               MessageTransmitter
 
 ## ⛽ How Circle Paymaster Works
 
-Circle Paymaster enables USDC-only transactions where users pay gas in USDC:
+### Circle Paymaster v0.8 (EIP-7702) - **RECOMMENDED**
 
 ```
-User Wallet           Circle Paymaster           Blockchain
+User EOA              Circle Paymaster v0.8         Blockchain
+     |                        |                        |
+[Add EIP-7702] ----------> [Enable Smart] --------> [Same Address]
+     |                        |                        |
+[Send USDC] ------------> [Pay Gas in ETH] --------> [Execute Transaction]
+     |                        |                        |
+[Pay 0 ETH] <------------- [Deduct USDC] <---------- [Transaction Success]
+```
+
+**v0.8 Process:**
+1. **EIP-7702**: Temporarily adds smart contract functionality to EOA
+2. **Same Address**: Uses your existing EOA address (no new account needed)
+3. **Multi-Chain**: Works across 7 different testnets
+4. **Gas Payment**: Paymaster pays ETH gas, deducts equivalent USDC
+
+### Circle Paymaster v0.7 (EIP-4337) - **LEGACY**
+
+```
+User Wallet           Circle Paymaster v0.7          Blockchain
      |                        |                        |
 [Sign Permit] ----------> [Receive USDC] --------> [Pay Gas in ETH]
      |                        |                        |
@@ -253,17 +362,11 @@ User Wallet           Circle Paymaster           Blockchain
 [Pay 0 ETH] <------------- [Deduct USDC] <--------- [Transaction Success]
 ```
 
-**Process:**
+**v0.7 Process:**
 1. **EIP-2612 Permit**: User signs permit for paymaster to spend USDC
-2. **User Operation**: Transaction bundled with paymaster data
-3. **Gas Payment**: Paymaster pays ETH gas, deducts equivalent USDC
-4. **Execution**: Transaction executes, user never touches ETH
-
-**Benefits:**
-- ✅ Zero ETH required
-- ✅ Perfect onboarding UX
-- ✅ Recipients pay no gas
-- ✅ Multi-chain support
+2. **User Operation**: Transaction bundled with paymaster data via EIP-4337
+3. **Bundler**: Uses external bundler service (Pimlico) for execution
+4. **Gas Payment**: Paymaster pays ETH gas, deducts equivalent USDC
 
 ## 🚀 Getting Started
 
@@ -273,13 +376,18 @@ User Wallet           Circle Paymaster           Blockchain
 - Fund your EOA with USDC on any supported chain
 - Use [Circle Faucet](https://faucet.circle.com)
 
-**For Paymaster gasless transfers:**
+**For Circle Paymaster v0.8 (Recommended):**
 ```bash
-# Get your Smart Account address
-"Get my Circle Smart Account address for Arbitrum Sepolia"
+# Your EOA and Smart Account are the same address!
+"Get my Circle Smart Account address for Base Sepolia using v0.8"
+# Fund your EOA address directly at https://faucet.circle.com
+```
 
-# Fund it with USDC at https://faucet.circle.com
-# Then send gasless transactions!
+**For Circle Paymaster v0.7 (Legacy):**
+```bash
+# Smart Account has different address than EOA
+"Get my Circle Smart Account address for Arbitrum Sepolia using v0.7"
+# Fund the returned Smart Account address at https://faucet.circle.com
 ```
 
 ### 2. Start Transferring
@@ -288,16 +396,33 @@ User Wallet           Circle Paymaster           Blockchain
 # Cross-chain transfer
 "Send 10 USDC from Base to Arbitrum"
 
-# Gasless transfer  
-"Send 5 USDC gaslessly to 0x123... on Base using Circle Paymaster"
+# Gasless transfer with v0.8 (recommended)
+"Send 5 USDC gaslessly to 0x123... on Base using v0.8 paymaster"
+
+# Gasless transfer with v0.7 (legacy)
+"Send 5 USDC gaslessly to 0x123... on Arbitrum using v0.7 paymaster"
 ```
+
+## 🔍 Paymaster Version Comparison
+
+| Feature | Circle Paymaster v0.8 | Circle Paymaster v0.7 |
+|---------|----------------------|----------------------|
+| **Technology** | EIP-7702 Smart Accounts | Circle Smart Account + EIP-4337 |
+| **Account Address** | ✅ Same as EOA | ❌ Different from EOA |
+| **Supported Chains** | ✅ 7 testnets | ❌ 1 testnet (Arbitrum Sepolia) |
+| **Performance** | ✅ Optimized gas usage | ⚠️ Higher gas costs |
+| **Setup Complexity** | ✅ Simple | ⚠️ Complex (bundler required) |
+| **Future Support** | ✅ Active development | ⚠️ Legacy/maintenance mode |
+| **Recommended Use** | ✅ **All new projects** | ⚠️ Legacy support only |
 
 ## 💡 Best Practices
 
-1. **Use v0.8 Paymaster**: Better performance and more chains than v0.7
-2. **Fund Smart Accounts**: Ensure your Circle Smart Account has USDC for gasless transfers
-3. **Check Balances**: Regular balance checks help track transfers
-4. **Consider Speed**: Use "fast" transfers for urgent transactions
+1. **Use v0.8 Paymaster**: Better performance, more chains, and future-proof
+2. **Use v0.7 Only When**: You specifically need legacy compatibility
+3. **Fund Correct Address**: 
+   - v0.8: Fund your EOA address directly
+   - v0.7: Fund the separate Smart Account address
+4. **Check Version Support**: Ensure the chain supports your chosen paymaster version
 5. **Test First**: Use testnets to familiarize yourself with the tools
 
 ## 🛡️ Security
@@ -310,7 +435,9 @@ User Wallet           Circle Paymaster           Blockchain
 ## 🔗 Resources
 
 - [Circle CCTP Documentation](https://developers.circle.com/stablecoins/docs/cctp-getting-started)
-- [Circle Paymaster Documentation](https://developers.circle.com/wallets/docs/circle-paymaster-overview)
+- [Circle Paymaster v0.8 Documentation](https://developers.circle.com/wallets/docs/circle-paymaster-overview)
+- [Circle Paymaster v0.7 Documentation](https://developers.circle.com/wallets/docs/circle-paymaster-v0-7)
+- [EIP-7702 Specification](https://eips.ethereum.org/EIPS/eip-7702)
 - [Circle Developer Hub](https://developers.circle.com)
 - [Model Context Protocol](https://modelcontextprotocol.io)
 - [USDC Faucet](https://faucet.circle.com)
@@ -318,7 +445,3 @@ User Wallet           Circle Paymaster           Blockchain
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-**Made with ❤️ for the Circle ecosystem and AI agent developers who want USDC-only transactions without gas token complexity.**
