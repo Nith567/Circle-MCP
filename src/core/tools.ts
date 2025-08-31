@@ -508,67 +508,6 @@ export function registerEVMTools(server: McpServer) {
     }
   );
 
-  // Get transaction by hash
-  server.tool(
-    "get_transaction",
-    "Get detailed information about a specific transaction by its hash. Includes sender, recipient, value, data, and more.",
-    {
-      txHash: z.string().describe("The transaction hash to look up (e.g., '0x1234...')"),
-      network: z.string().optional().describe("Network name (e.g., 'base', 'optimism') or chain ID. Defaults to Base mainnet.")
-    },
-    async ({ txHash, network = DEFAULT_NETWORK }) => {
-      try {
-        const tx = await services.getTransaction(txHash as Hash, network);
-
-        return {
-          content: [{
-            type: "text",
-            text: services.helpers.formatJson(tx)
-          }]
-        };
-      } catch (error) {
-        return {
-          content: [{
-            type: "text",
-            text: `Error fetching transaction ${txHash}: ${error instanceof Error ? error.message : String(error)}`
-          }],
-          isError: true
-        };
-      }
-    }
-  );
-
-  // Get transaction receipt
-  server.tool(
-    "get_transaction_receipt",
-    "Get a transaction receipt by its hash",
-    {
-      txHash: z.string().describe("The transaction hash to look up"),
-      network: z.string().optional().describe("Network name or chain ID. Defaults to Base mainnet.")
-    },
-    async ({ txHash, network = DEFAULT_NETWORK }) => {
-      try {
-        const receipt = await services.getTransactionReceipt(txHash as Hash, network);
-
-        return {
-          content: [{
-            type: "text",
-            text: services.helpers.formatJson(receipt)
-          }]
-        };
-      } catch (error) {
-        return {
-          content: [{
-            type: "text",
-            text: `Error fetching transaction receipt ${txHash}: ${error instanceof Error ? error.message : String(error)}`
-          }],
-          isError: true
-        };
-      }
-    }
-  );
-
-
 
   // TRANSFER TOOLS
 
@@ -658,41 +597,6 @@ export function registerEVMTools(server: McpServer) {
 
 
 
-  // CONTRACT TOOLS
-
-  // Get ERC20 token information
-  server.tool(
-    "get_token_info",
-    "Get comprehensive information about an ERC20 token including name, symbol, decimals, total supply, and other metadata. Use this to analyze any token on EVM chains.",
-    {
-      tokenAddress: z.string().describe("The contract address of the ERC20 token (e.g., '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48')"),
-      network: z.string().optional().describe("Network name (e.g., 'base', 'optimism') or chain ID. Defaults to Base mainnet.")
-    },
-    async ({ tokenAddress, network = DEFAULT_NETWORK }) => {
-      try {
-        const tokenInfo = await services.getERC20TokenInfo(tokenAddress as Address, network);
-
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              address: tokenAddress,
-              network,
-              ...tokenInfo
-            }, null, 2)
-          }]
-        };
-      } catch (error) {
-        return {
-          content: [{
-            type: "text",
-            text: `Error fetching token info: ${error instanceof Error ? error.message : String(error)}`
-          }],
-          isError: true
-        };
-      }
-    }
-  );
 
   // WALLET TOOLS
 
