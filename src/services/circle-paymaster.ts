@@ -233,10 +233,7 @@ export class CirclePaymasterService {
         await this.getAccountAddress(chainId);
       }
 
-      console.log(`🚀 Executing Circle Paymaster v0.7 transfer...`);
-      console.log(`   From: ${this.smartAccount.address} (Circle Smart Account)`);
-      console.log(`   To: ${recipientAddress}`);
-      console.log(`   Amount: ${amount} USDC`);
+
 
       // Check balance first
       const balance = await this.checkUSDCBalance(chainId);
@@ -254,8 +251,6 @@ export class CirclePaymasterService {
       const amountWei = parseUnits(amount, 6); // USDC has 6 decimals
       const permitAmount = parseUnits("10", 6); // 10 USDC permit for gas
       
-      console.log(`💰 Balance check passed: ${balance} USDC available`);
-      console.log(`📝 Creating EIP-2612 permit for paymaster...`);
       
       // Sign permit for paymaster to spend USDC for gas
       const permitSignature = await this.signPermit(
@@ -265,7 +260,6 @@ export class CirclePaymasterService {
         permitAmount
       );
 
-      console.log(`✅ Permit signed successfully`);
 
       // Create paymaster data
       const paymasterData = encodePacked(
@@ -286,7 +280,6 @@ export class CirclePaymasterService {
         },
       };
 
-      console.log(`🔗 Creating bundler client...`);
       
       // Create bundler client with Pimlico
       const bundlerClient = createBundlerClient({
@@ -305,7 +298,6 @@ export class CirclePaymasterService {
         transport: http(`https://public.pimlico.io/v2/${chainId}/rpc`),
       });
 
-      console.log(`🔥 Executing REAL gasless transaction via EIP-4337...`);
       
       // Submit user operation
       const userOpHash = await bundlerClient.sendUserOperation({
@@ -320,8 +312,6 @@ export class CirclePaymasterService {
         ],
       });
 
-      console.log(`✅ UserOperation submitted: ${userOpHash}`);
-      console.log(`⏳ Waiting for transaction receipt...`);
 
       // Wait for transaction receipt
       const receipt = await bundlerClient.waitForUserOperationReceipt({ 
@@ -331,9 +321,6 @@ export class CirclePaymasterService {
       const txHash = receipt.receipt.transactionHash;
       const explorerUrl = `https://sepolia.arbiscan.io/tx/${txHash}`;
       
-      console.log(`🎉 GASLESS TRANSFER SUCCESSFUL!`);
-      console.log(`   Transaction Hash: ${txHash}`);
-      console.log(`   Gas paid in: USDC (via Circle Paymaster v0.7)`);
       
       return {
         success: true,

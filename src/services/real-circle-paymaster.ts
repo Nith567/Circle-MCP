@@ -123,7 +123,6 @@ export class RealCirclePaymaster {
     try {
       const { recipientAddress, amount } = params;
       
-      console.log("🔄 Setting up real Circle Smart Account...");
       
       // Create public client
       const client = createPublicClient({
@@ -134,9 +133,6 @@ export class RealCirclePaymaster {
       // Create Circle Smart Account
       const owner = privateKeyToAccount(this.privateKey as Hex);
       const account = await toCircleSmartAccount({ client, owner });
-      
-      console.log(`   Smart Account: ${account.address}`);
-      console.log(`   Owner: ${owner.address}`);
 
       // Get USDC contract
       const usdc = getContract({
@@ -148,8 +144,7 @@ export class RealCirclePaymaster {
       // Check balance
       const usdcAmount = BigInt(parseFloat(amount) * 1e6); // Convert to 6 decimals
       const balance = await usdc.read.balanceOf([account.address]);
-      
-      console.log(`   USDC Balance: ${(Number(balance) / 1e6).toString()} USDC`);
+    
       
       if (balance < usdcAmount) {
         return {
@@ -159,8 +154,6 @@ export class RealCirclePaymaster {
         };
       }
 
-      // Create permit for paymaster
-      console.log("🎫 Creating EIP-2612 permit...");
       const permitAmount = 10000000n; // 10 USDC allowance
       const permitNonce = await usdc.read.nonces([account.address]);
       const deadline = maxUint256;
@@ -177,7 +170,6 @@ export class RealCirclePaymaster {
       const permitSignature = await account.signTypedData(permitTypedData);
       const { signature } = parseErc6492Signature(permitSignature);
       
-      console.log("   ✅ Permit signature created");
 
       // Create paymaster data
       const paymasterData = encodePacked(
@@ -185,7 +177,6 @@ export class RealCirclePaymaster {
         [0, REAL_PAYMASTER_CONFIG.usdcAddress, permitAmount, signature],
       );
 
-      console.log("💸 Preparing USDC transfer call...");
       
       // Encode USDC transfer
       const transferCallData = encodeFunctionData({
@@ -194,8 +185,7 @@ export class RealCirclePaymaster {
         args: [recipientAddress, usdcAmount],
       });
 
-      console.log(`   Transfer: ${amount} USDC to ${recipientAddress}`);
-      console.log(`   Call data: ${transferCallData}`);
+
 
       // Check if smart account is deployed
       const code = await client.getCode({
@@ -206,7 +196,7 @@ export class RealCirclePaymaster {
       let userOpNonce = 0n;
 
       if (!code || code === '0x') {
-        console.log("🏗️ Smart account not deployed - including deployment in UserOp");
+
         
         // For Circle Smart Account, we need the factory and creation data
         // This is a simplified approach - real implementation would get this from Circle SDK
@@ -233,7 +223,6 @@ export class RealCirclePaymaster {
         
         userOpNonce = 0n; // First transaction for new account
       } else {
-        console.log("✅ Smart account already deployed");
         // Get current nonce (simplified - real implementation would fetch from entrypoint)
         userOpNonce = 0n; // Would fetch real nonce here
       }
@@ -256,8 +245,7 @@ export class RealCirclePaymaster {
         signature: "0x" as Hex, // Will be filled by account
       };
 
-      console.log("🚀 Submitting to bundler...");
-      console.log(`   Bundler URL: ${REAL_PAYMASTER_CONFIG.bundlerUrl}`);
+
       
       // Submit to bundler (simplified - real implementation would use proper bundler client)
       const bundlerResponse = await fetch(REAL_PAYMASTER_CONFIG.bundlerUrl, {
@@ -284,10 +272,6 @@ export class RealCirclePaymaster {
       }
 
       const userOpHash = bundlerResult.result;
-      console.log(`   ✅ User Operation Hash: ${userOpHash}`);
-
-      // Wait for transaction receipt (simplified)
-      console.log("⏳ Waiting for transaction confirmation...");
       
       // In real implementation, you'd poll for the receipt
       // For now, return the user operation hash
@@ -300,7 +284,6 @@ export class RealCirclePaymaster {
       };
 
     } catch (error) {
-      console.error("❌ Real transfer failed:", error);
       return {
         success: false,
         message: `Failed to execute real gasless transfer: ${error instanceof Error ? error.message : 'Unknown error'}`,
