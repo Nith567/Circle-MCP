@@ -14,12 +14,12 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that en
 ## Supported Networks
 
 | Chain | Chain ID | Domain | Status |
+| Unichain Sepolia | 1301 | 10 | ✅ Active |
 |-------|----------|---------|---------|
 | Ethereum Sepolia | 11155111 | 0 | ✅ Active |
 | Avalanche Fuji | 43113 | 1 | ✅ Active |
 | Arbitrum Sepolia | 421614 | 3 | ✅ Active |
 | Base Sepolia | 84532 | 6 | ✅ Active |
-| Unichain Sepolia | 1301 | 10 | ✅ Active |
 | Linea Sepolia | 59144 | 11 | ✅ Active |
 | Sonic Blaze | 161 | 13 | ✅ Active |
 | Worldchain Sepolia | 1666700000 | 14 | ✅ Active |
