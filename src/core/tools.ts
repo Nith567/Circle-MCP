@@ -881,7 +881,11 @@ server.tool(
       }
     }
   );
-// Circle Paymaster v0.7 - Gasless USDC transfers (Arbitrum Sepolia only)
+
+
+  // ...existing code...
+
+// Circle Paymaster v0.7 - Gasless USDC transfers (Arbitrum Sepolia only) - FIXED
 server.tool(
   "paymaster_v07_send_usdc",
   "Send USDC using Circle Paymaster v0.7 (gasless transaction - gas fees paid in USDC). ONLY supports Arbitrum Sepolia. Uses Circle Smart Account.",
@@ -893,10 +897,10 @@ server.tool(
     try {
       const chainId = 421614; // Arbitrum Sepolia only
 
-      // Step 1: Get Circle Smart Account address
+      // Step 1: Get Circle Smart Account address - NO VERSION PARAMETER
       const senderAddress = await paymasterService.getAccountAddress(chainId);
       
-      // Step 2: Check USDC balance in Smart Account
+      // Step 2: Check USDC balance in Smart Account - NO VERSION PARAMETER
       const balance = await paymasterService.checkUSDCBalance(chainId);
       
       if (parseFloat(balance) < parseFloat(amount)) {
@@ -923,7 +927,7 @@ server.tool(
         };
       }
 
-      // Step 3: Execute the gasless transfer
+      // Step 3: Execute the gasless transfer - EXACT SAME AS TEST
       const result = await paymasterService.executeGaslessTransfer({
         chainId,
         recipientAddress: recipientAddress as Address,
@@ -987,5 +991,7 @@ server.tool(
     }
   }
 );
+
+// ...existing code...
 
 }
