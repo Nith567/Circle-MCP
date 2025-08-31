@@ -1,41 +1,40 @@
-import {
-  createPublicClient,
-  http,
-  getContract,
+import { 
+  createPublicClient, 
+  createWalletClient, 
+  http, 
+  encodeFunctionData, 
+  parseUnits, 
+  getContract, 
   encodePacked,
   maxUint256,
-  erc20Abi,
   parseErc6492Signature,
   hexToBigInt,
-  type Address,
-  type Hex,
+  type Address, 
+  type Hex 
 } from 'viem';
-import { arbitrumSepolia, baseSepolia, sepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
+import { toCircleSmartAccount } from '@circle-fin/modular-wallets-core';
+import { createBundlerClient } from 'viem/account-abstraction';
+import { erc20Abi } from 'viem';
+import { getRpcUrl, getChain } from '../core/chains.js';
 import { config } from '../core/config.js';
-import { getChain, getRpcUrl, CHAIN_IDS_TO_USDC_ADDRESSES } from '../core/chains.js';
 
-// EIP-2612 Permit ABI extension
-export const eip2612Abi = [
+const CIRCLE_PAYMASTER_CONFIG = {
+  421614: { // Arbitrum Sepolia
+    usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+    paymasterAddress: "0x31BE08D380A21fc740883c0BC434FcFc88740b58"
+  }
+};
+
+// EIP-2612 ABI extension
+const eip2612Abi = [
   ...erc20Abi,
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "owner", type: "address" }],
     stateMutability: "view",
     type: "function",
     name: "nonces",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
   },
   {
     inputs: [],
@@ -46,65 +45,35 @@ export const eip2612Abi = [
   },
 ] as const;
 
-// Circle Paymaster configuration per chain
-export const CIRCLE_PAYMASTER_CONFIG = {
-  [421614]: { // Arbitrum Sepolia
-    paymasterAddress: "0x31BE08D380A21fc740883c0BC434FcFc88740b58",
-    bundlerUrl: "https://public.pimlico.io/v2/421614/rpc",
-    usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-  },
-  // Add more chains as you provide the addresses
-  // [84532]: { // Base Sepolia - pending addresses
-  //   paymasterAddress: "0x...",
-  //   bundlerUrl: "https://public.pimlico.io/v2/84532/rpc",
-  //   usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  // },
-  // [11155111]: { // Ethereum Sepolia - pending addresses
-  //   paymasterAddress: "0x...",
-  //   bundlerUrl: "https://public.pimlico.io/v2/11155111/rpc",
-  //   usdcAddress: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
-  // },
-} as const;
-
 export interface PaymasterTransferParams {
   chainId: number;
   recipientAddress: Address;
-  amount: string; // USDC amount in human readable format (e.g., "10.50")
-  ownerPrivateKey?: string; // Optional, defaults to config
+  amount: string;
 }
 
 export class CirclePaymasterService {
   private account: any;
-  private privateKey: string;
+  private smartAccount: any = null;
 
-  constructor(privateKey?: string) {
-    const key = privateKey || config.privateKey;
-    if (!key) {
-      throw new Error('Private key is required for Circle Paymaster service');
+  constructor() {
+    if (!config.privateKey) {
+      throw new Error('Private key not found in environment variables');
     }
-    this.privateKey = key;
-    this.account = privateKeyToAccount(this.privateKey as Hex);
+    this.account = privateKeyToAccount(config.privateKey as Hex);
   }
 
   /**
-   * Create EIP-2612 permit for USDC allowance
+   * Create EIP-2612 permit for USDC
    */
-  async createEIP2612Permit({
-    token,
-    chain,
-    ownerAddress,
-    spenderAddress,
-    value,
-  }: {
-    token: any;
-    chain: any;
-    ownerAddress: Address;
-    spenderAddress: Address;
-    value: bigint;
-  }) {
+  private async createEIP2612Permit(
+    token: any,
+    chain: any,
+    ownerAddress: Address,
+    spenderAddress: Address,
+    value: bigint
+  ) {
     return {
       types: {
-        // Required for compatibility with Circle PW Sign Typed Data API
         EIP712Domain: [
           { name: "name", type: "string" },
           { name: "version", type: "string" },
@@ -127,60 +96,48 @@ export class CirclePaymasterService {
         verifyingContract: token.address,
       },
       message: {
-        // Convert bigint fields to string to match EIP-712 JSON schema expectations
         owner: ownerAddress,
         spender: spenderAddress,
         value: value.toString(),
         nonce: (await token.read.nonces([ownerAddress])).toString(),
-        // The paymaster cannot access block.timestamp due to 4337 opcode
-        // restrictions, so the deadline must be MAX_UINT256.
         deadline: maxUint256.toString(),
       },
     };
   }
 
   /**
-   * Sign permit for USDC allowance
+   * Sign permit for paymaster
    */
-  async signPermit({
-    tokenAddress,
-    client,
-    account,
-    spenderAddress,
-    permitAmount,
-  }: {
-    tokenAddress: Address;
-    client: any;
-    account: any;
-    spenderAddress: Address;
-    permitAmount: bigint;
-  }): Promise<Hex> {
+  private async signPermit(
+    client: any,
+    tokenAddress: Address,
+    spenderAddress: Address,
+    permitAmount: bigint
+  ) {
     const token = getContract({
       client,
       address: tokenAddress,
       abi: eip2612Abi,
     });
 
-    const permitData = await this.createEIP2612Permit({
+    const permitData = await this.createEIP2612Permit(
       token,
-      chain: client.chain,
-      ownerAddress: account.address,
+      client.chain,
+      this.smartAccount.address,
       spenderAddress,
-      value: permitAmount,
-    });
+      permitAmount
+    );
 
-    const wrappedPermitSignature = await account.signTypedData(permitData);
+    const wrappedPermitSignature = await this.smartAccount.signTypedData(permitData);
 
     const isValid = await client.verifyTypedData({
       ...permitData,
-      address: account.address,
+      address: this.smartAccount.address,
       signature: wrappedPermitSignature,
     });
 
     if (!isValid) {
-      throw new Error(
-        `Invalid permit signature for ${account.address}: ${wrappedPermitSignature}`,
-      );
+      throw new Error(`Invalid permit signature for ${this.smartAccount.address}`);
     }
 
     const { signature } = parseErc6492Signature(wrappedPermitSignature);
@@ -188,12 +145,12 @@ export class CirclePaymasterService {
   }
 
   /**
-   * Check USDC balance of account
+   * Get Circle Smart Account address (REAL v0.7 implementation)
    */
-  async checkUSDCBalance(chainId: number, accountAddress?: Address): Promise<string> {
+  async getAccountAddress(chainId: number, version?: string): Promise<Address> {
     const chainConfig = CIRCLE_PAYMASTER_CONFIG[chainId as keyof typeof CIRCLE_PAYMASTER_CONFIG];
     if (!chainConfig) {
-      throw new Error(`Paymaster not supported on chain ${chainId}`);
+      throw new Error(`Paymaster v0.7 not supported on chain ${chainId}. Only supports Arbitrum Sepolia (421614)`);
     }
 
     const chain = getChain(chainId);
@@ -201,6 +158,37 @@ export class CirclePaymasterService {
       chain, 
       transport: http(getRpcUrl(chainId)) 
     });
+
+    // Create REAL Circle Smart Account using Circle SDK
+    const smartAccount = await toCircleSmartAccount({ 
+      client, 
+      owner: this.account 
+    });
+
+    this.smartAccount = smartAccount;
+    return smartAccount.address;
+  }
+
+  /**
+   * Check USDC balance in Circle Smart Account (REAL implementation)
+   */
+  async checkUSDCBalance(chainId: number, accountAddress?: Address, version?: string): Promise<string> {
+    const chainConfig = CIRCLE_PAYMASTER_CONFIG[chainId as keyof typeof CIRCLE_PAYMASTER_CONFIG];
+    if (!chainConfig) {
+      throw new Error(`Paymaster v0.7 not supported on chain ${chainId}. Only supports Arbitrum Sepolia (421614)`);
+    }
+
+    const chain = getChain(chainId);
+    const client = createPublicClient({ 
+      chain, 
+      transport: http(getRpcUrl(chainId)) 
+    });
+
+    // Get Circle Smart Account address if not provided
+    let targetAddress = accountAddress;
+    if (!targetAddress) {
+      targetAddress = await this.getAccountAddress(chainId);
+    }
 
     const usdc = getContract({ 
       client, 
@@ -208,7 +196,6 @@ export class CirclePaymasterService {
       abi: erc20Abi 
     });
 
-    const targetAddress = accountAddress || this.account.address;
     const balance = await usdc.read.balanceOf([targetAddress]);
     
     // Convert from 6 decimals to human readable
@@ -216,115 +203,13 @@ export class CirclePaymasterService {
   }
 
   /**
-   * Simulate gasless USDC transfer (preparation step)
-   */
-  async prepareGaslessTransfer(params: PaymasterTransferParams): Promise<{
-    success: boolean;
-    message: string;
-    permitData?: any;
-    transferData?: any;
-  }> {
-    const { chainId, recipientAddress, amount } = params;
-    
-    const chainConfig = CIRCLE_PAYMASTER_CONFIG[chainId as keyof typeof CIRCLE_PAYMASTER_CONFIG];
-    if (!chainConfig) {
-      return {
-        success: false,
-        message: `Paymaster not supported on chain ${chainId}. Supported chains: ${Object.keys(CIRCLE_PAYMASTER_CONFIG).join(', ')}`
-      };
-    }
-
-    const chain = getChain(chainId);
-    const client = createPublicClient({ 
-      chain, 
-      transport: http(getRpcUrl(chainId)) 
-    });
-
-    const usdcAddress = chainConfig.usdcAddress as Address;
-    const paymasterAddress = chainConfig.paymasterAddress as Address;
-
-    // Check USDC balance
-    const usdc = getContract({ client, address: usdcAddress, abi: erc20Abi });
-    const usdcAmount = BigInt(parseFloat(amount) * 1e6); // Convert to 6 decimals
-    const usdcBalance = await usdc.read.balanceOf([this.account.address]);
-
-    if (usdcBalance < usdcAmount) {
-      return {
-        success: false,
-        message: `Insufficient USDC balance. Need ${amount} USDC, have ${(Number(usdcBalance) / 1e6).toString()}. Fund your account at https://faucet.circle.com`
-      };
-    }
-
-    // Create permit signature for paymaster allowance
-    const permitAmount = 10000000n; // 10 USDC allowance for gas
-    let permitSignature: Hex;
-    
-    try {
-      permitSignature = await this.signPermit({
-        tokenAddress: usdcAddress,
-        client,
-        account: this.account,
-        spenderAddress: paymasterAddress,
-        permitAmount: permitAmount,
-      });
-    } catch (error) {
-      return {
-        success: false,
-        message: `Failed to create permit signature: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-
-    const paymasterData = encodePacked(
-      ["uint8", "address", "uint256", "bytes"],
-      [0, usdcAddress, permitAmount, permitSignature],
-    );
-
-    return {
-      success: true,
-      message: `Ready to transfer ${amount} USDC to ${recipientAddress} using paymaster. Gas will be paid in USDC.`,
-      permitData: {
-        permitAmount: permitAmount.toString(),
-        permitSignature,
-        paymasterData,
-      },
-      transferData: {
-        from: this.account.address,
-        to: recipientAddress,
-        amount: usdcAmount.toString(),
-        usdcAddress,
-        paymasterAddress,
-        chainId,
-        chainName: chain.name,
-      }
-    };
-  }
-
-  /**
-   * Get supported chains for Circle Paymaster
-   */
-  getSupportedChains(): Array<{
-    chainId: number;
-    name: string;
-    paymasterAddress: string;
-    usdcAddress: string;
-  }> {
-    return Object.entries(CIRCLE_PAYMASTER_CONFIG).map(([chainId, config]) => ({
-      chainId: Number(chainId),
-      name: getChain(Number(chainId)).name,
-      paymasterAddress: config.paymasterAddress,
-      usdcAddress: config.usdcAddress,
-    }));
-  }
-
-  /**
-   * Execute gasless USDC transfer using Circle Paymaster
+   * Execute REAL gasless USDC transfer using Circle Paymaster v0.7 with EIP-4337
    */
   async executeGaslessTransfer(params: PaymasterTransferParams): Promise<{
     success: boolean;
+    txHash?: string;
     message: string;
-    userOperationHash?: string;
-    transactionHash?: string;
-    error?: string;
+    explorerUrl?: string;
   }> {
     const { chainId, recipientAddress, amount } = params;
     
@@ -332,8 +217,7 @@ export class CirclePaymasterService {
     if (!chainConfig) {
       return {
         success: false,
-        message: `Paymaster not supported on chain ${chainId}. Only Arbitrum Sepolia (421614) is currently supported.`,
-        error: "UNSUPPORTED_CHAIN"
+        message: `Paymaster v0.7 not supported on chain ${chainId}. Only supports Arbitrum Sepolia (421614)`
       };
     }
 
@@ -344,94 +228,151 @@ export class CirclePaymasterService {
         transport: http(getRpcUrl(chainId)) 
       });
 
-      const usdcAddress = chainConfig.usdcAddress as Address;
-      const paymasterAddress = chainConfig.paymasterAddress as Address;
+      // Get or create Circle Smart Account
+      if (!this.smartAccount) {
+        await this.getAccountAddress(chainId);
+      }
 
-      // Check USDC balance
-      const usdc = getContract({ client, address: usdcAddress, abi: erc20Abi });
-      const usdcAmount = BigInt(parseFloat(amount) * 1e6); // Convert to 6 decimals
-      const usdcBalance = await usdc.read.balanceOf([this.account.address]);
+      console.log(`🚀 Executing Circle Paymaster v0.7 transfer...`);
+      console.log(`   From: ${this.smartAccount.address} (Circle Smart Account)`);
+      console.log(`   To: ${recipientAddress}`);
+      console.log(`   Amount: ${amount} USDC`);
 
-      if (usdcBalance < usdcAmount) {
+      // Check balance first
+      const balance = await this.checkUSDCBalance(chainId);
+      const balanceNum = parseFloat(balance);
+      const amountNum = parseFloat(amount);
+      
+      if (balanceNum < amountNum) {
         return {
           success: false,
-          message: `Insufficient USDC balance. Need ${amount} USDC, have ${(Number(usdcBalance) / 1e6).toString()}`,
-          error: "INSUFFICIENT_BALANCE"
+          message: `Insufficient USDC balance. Have ${balance} USDC, need ${amount} USDC. Fund your Circle Smart Account at: https://faucet.circle.com`
         };
       }
 
-      // For now, simulate the gasless transfer since full Account Abstraction setup requires:
-      // 1. Smart contract wallet deployment
-      // 2. Bundler integration  
-      // 3. User operation signing
-      // 4. Paymaster validation
-
-
-      // Create permit signature
-      const permitAmount = 10000000n; // 10 USDC allowance for gas
-      const permitSignature = await this.signPermit({
-        tokenAddress: usdcAddress,
+      // Prepare transfer data
+      const amountWei = parseUnits(amount, 6); // USDC has 6 decimals
+      const permitAmount = parseUnits("10", 6); // 10 USDC permit for gas
+      
+      console.log(`💰 Balance check passed: ${balance} USDC available`);
+      console.log(`📝 Creating EIP-2612 permit for paymaster...`);
+      
+      // Sign permit for paymaster to spend USDC for gas
+      const permitSignature = await this.signPermit(
         client,
-        account: this.account,
-        spenderAddress: paymasterAddress,
-        permitAmount: permitAmount,
-      });
-
-      const paymasterData = encodePacked(
-        ["uint8", "address", "uint256", "bytes"],
-        [0, usdcAddress, permitAmount, permitSignature],
+        chainConfig.usdcAddress as Address,
+        chainConfig.paymasterAddress as Address,
+        permitAmount
       );
 
-      // Simulate user operation hash (in real implementation, this would be submitted to bundler)
-      const mockUserOpHash = `0x${Buffer.from(`gasless-${Date.now()}-${this.account.address}-${recipientAddress}-${amount}`).toString('hex').slice(0, 64)}` as `0x${string}`;
+      console.log(`✅ Permit signed successfully`);
 
+      // Create paymaster data
+      const paymasterData = encodePacked(
+        ["uint8", "address", "uint256", "bytes"],
+        [0, chainConfig.usdcAddress as Address, permitAmount, permitSignature]
+      );
+
+      // Create paymaster configuration
+      const paymaster = {
+        async getPaymasterData() {
+          return {
+            paymaster: chainConfig.paymasterAddress as Address,
+            paymasterData,
+            paymasterVerificationGasLimit: 200000n,
+            paymasterPostOpGasLimit: 15000n,
+            isFinal: true,
+          };
+        },
+      };
+
+      console.log(`🔗 Creating bundler client...`);
+      
+      // Create bundler client with Pimlico
+      const bundlerClient = createBundlerClient({
+        account: this.smartAccount,
+        client,
+        paymaster,
+        userOperation: {
+          estimateFeesPerGas: async () => {
+            // Use a simple gas estimation for testnet
+            return {
+              maxFeePerGas: parseUnits("2", 9), // 2 gwei
+              maxPriorityFeePerGas: parseUnits("1", 9), // 1 gwei
+            };
+          },
+        },
+        transport: http(`https://public.pimlico.io/v2/${chainId}/rpc`),
+      });
+
+      console.log(`🔥 Executing REAL gasless transaction via EIP-4337...`);
+      
+      // Submit user operation
+      const userOpHash = await bundlerClient.sendUserOperation({
+        account: this.smartAccount,
+        calls: [
+          {
+            to: chainConfig.usdcAddress as Address,
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [recipientAddress, amountWei],
+          },
+        ],
+      });
+
+      console.log(`✅ UserOperation submitted: ${userOpHash}`);
+      console.log(`⏳ Waiting for transaction receipt...`);
+
+      // Wait for transaction receipt
+      const receipt = await bundlerClient.waitForUserOperationReceipt({ 
+        hash: userOpHash 
+      });
+
+      const txHash = receipt.receipt.transactionHash;
+      const explorerUrl = `https://sepolia.arbiscan.io/tx/${txHash}`;
+      
+      console.log(`🎉 GASLESS TRANSFER SUCCESSFUL!`);
+      console.log(`   Transaction Hash: ${txHash}`);
+      console.log(`   Gas paid in: USDC (via Circle Paymaster v0.7)`);
+      
       return {
         success: true,
-        message: `Successfully prepared gasless transfer of ${amount} USDC. In production, this would be submitted to the bundler.`,
-        userOperationHash: mockUserOpHash,
-        // Note: In real implementation, transactionHash would come from bundler after execution
+        txHash,
+        explorerUrl,
+        message: `Successfully transferred ${amount} USDC using Circle Paymaster v0.7. Gas paid in USDC via EIP-4337! 🚀`
       };
 
     } catch (error) {
+      console.error('Circle Paymaster v0.7 transfer failed:', error);
       return {
         success: false,
-        message: `Failed to execute gasless transfer: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: `Transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }
 
   /**
-   * Get Circle Smart Account address
+   * LEGACY - Remove simulation, use real execution
    */
-  async getAccountAddress(chainId: number): Promise<Address> {
-    try {
-      // Import Circle SDK here to avoid import issues
-      const { toCircleSmartAccount } = await import('@circle-fin/modular-wallets-core');
-      
-      // Get the chain and create public client
-      const chain = getChain(chainId);
-      const client = createPublicClient({
-        chain,
-        transport: http(getRpcUrl(chainId)),
-      });
-
-      // Create Circle Smart Account
-      const smartAccount = await toCircleSmartAccount({ 
-        client, 
-        owner: this.account 
-      });
-
-      return smartAccount.address;
-    } catch (error) {
-      // Fallback to EOA if Circle Smart Account creation fails
-      console.warn('Failed to get Circle Smart Account, falling back to EOA:', error);
-      return this.account.address;
-    }
+  async prepareGaslessTransfer(params: PaymasterTransferParams): Promise<{
+    success: boolean;
+    message: string;
+    permitData?: any;
+    transferData?: any;
+    txHash?: string;
+    explorerUrl?: string;
+  }> {
+    // Now calls the REAL execution instead of simulation
+    const result = await this.executeGaslessTransfer(params);
+    return {
+      success: result.success,
+      message: result.message,
+      txHash: result.txHash,
+      explorerUrl: result.explorerUrl
+    };
   }
 }
 
-// Factory function
-export function createCirclePaymasterService(privateKey?: string): CirclePaymasterService {
-  return new CirclePaymasterService(privateKey);
+export function createCirclePaymasterService() {
+  return new CirclePaymasterService();
 }
