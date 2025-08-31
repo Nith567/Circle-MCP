@@ -2,7 +2,7 @@
   "name": "@circle/cctp-mcp-server",
   "module": "src/index.ts",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Model Context Protocol (MCP) server for Circle's Cross-Chain Transfer Protocol (CCTP) v2 - seamless USDC transfers across multiple blockchains",
   "bin": {
     "cctp-mcp-server": "./bin/cli.js"
