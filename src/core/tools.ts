@@ -881,6 +881,111 @@ server.tool(
       }
     }
   );
+// Circle Paymaster v0.7 - Gasless USDC transfers (Arbitrum Sepolia only)
+server.tool(
+  "paymaster_v07_send_usdc",
+  "Send USDC using Circle Paymaster v0.7 (gasless transaction - gas fees paid in USDC). ONLY supports Arbitrum Sepolia. Uses Circle Smart Account.",
+  {
+    recipientAddress: z.string().describe("Recipient wallet address (0x...)"),
+    amount: z.string().describe("Amount of USDC to send (e.g., '0.23' for $0.23)")
+  },
+  async ({ recipientAddress, amount }) => {
+    try {
+      const chainId = 421614; // Arbitrum Sepolia only
 
+      // Step 1: Get Circle Smart Account address
+      const senderAddress = await paymasterService.getAccountAddress(chainId);
+      
+      // Step 2: Check USDC balance in Smart Account
+      const balance = await paymasterService.checkUSDCBalance(chainId);
+      
+      if (parseFloat(balance) < parseFloat(amount)) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: "Insufficient USDC balance in Circle Smart Account",
+              currentBalance: balance,
+              requiredAmount: amount,
+              circleSmartAccount: senderAddress,
+              version: "v0.7",
+              accountType: "Circle Smart Account",
+              instructions: [
+                "Fund your Circle Smart Account with USDC first",
+                `Circle Smart Account Address: ${senderAddress}`,
+                "Faucet: https://faucet.circle.com",
+                "Network: Arbitrum Sepolia",
+                "Then try the transfer again"
+              ]
+            }, null, 2)
+          }]
+        };
+      }
+
+      // Step 3: Execute the gasless transfer
+      const result = await paymasterService.executeGaslessTransfer({
+        chainId,
+        recipientAddress: recipientAddress as Address,
+        amount,
+      });
+
+      if (result.success) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              message: result.message,
+              version: "v0.7",
+              accountType: "Circle Smart Account",
+              gaslessTransfer: true,
+              details: {
+                from: senderAddress,
+                to: recipientAddress,
+                amount: `${amount} USDC`,
+                chainId: 421614,
+                network: "Arbitrum Sepolia",
+                gasPaidWith: "USDC",
+                noETHRequired: true,
+              },
+              txHash: result.txHash,
+              explorerUrl: result.explorerUrl,
+              note: "Gas fees automatically deducted from USDC balance using Circle Paymaster v0.7!"
+            }, null, 2)
+          }]
+        };
+      } else {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: result.message || "Transfer failed",
+              version: "v0.7",
+              chainId: 421614,
+              network: "Arbitrum Sepolia"
+            }, null, 2)
+          }],
+          isError: true
+        };
+      }
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            version: "v0.7",
+            chainId: 421614,
+            network: "Arbitrum Sepolia"
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
+  }
+);
 
 }
